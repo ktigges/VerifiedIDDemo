@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ employee.given_name }} {{ employee.family_name }} | {{ organization_name }} Identity{% endblock %}
+{% block content %}
+<section class="workspace">
+  <div class="workspace-heading">
+    <div>
+      <p class="eyebrow">Onboarding / {{ employee.employee_id }}</p>
+      <h1>{{ employee.given_name }} {{ employee.family_name }}</h1>
+      <p>{{ employee.job_title }} · {{ employee.department }} · {{ employee.email }}</p>
+    </div>
+    <a class="secondary" href="{{ url_for('index') }}">Another employee</a>
+  </div>
+
+  <div class="progress" aria-label="Onboarding progress">
+    <div class="progress-step active"><span>1</span><strong>Record created</strong></div>
+    <div class="progress-line {% if employee.status in ['credential_issued', 'presentation_pending', 'presentation_error', 'verified', 'helpdesk_verified', 'facecheck_verified'] %}complete{% endif %}"></div>
+    <div class="progress-step {% if employee.status in ['credential_issued', 'presentation_pending', 'presentation_error', 'verified', 'helpdesk_verified', 'facecheck_verified'] %}active{% endif %}"><span>2</span><strong>Credential issued</strong></div>
+    <div class="progress-line {% if employee.status in ['verified', 'helpdesk_verified', 'facecheck_verified'] %}complete{% endif %}"></div>
+    <div class="progress-step {% if employee.status in ['verified', 'helpdesk_verified', 'facecheck_verified'] %}active{% endif %}"><span>3</span><strong>Identity verified</strong></div>
+  </div>
+
+  {% if employee.error %}<div class="notice error"><strong>Request failed.</strong> {{ employee.error }}</div>{% endif %}
+
+  <div class="action-panel">
+    {% if employee.status in ['created', 'issuance_error'] %}
+      <p class="step-number">STEP 1 OF 3</p>
+      <h2>Issue the employee credential</h2>
+      <p>Pre-created Entra account <strong>{{ employee.email }}</strong> is linked. The employee does not need to sign in. Add an HR-approved JPEG photo so the issued credential can support Microsoft Entra Face Check.</p>
+      {% if missing_config %}
+        <div class="notice warning">Complete the tenant configuration before continuing.</div>
+      {% else %}
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('start_issuance', onboarding_id=employee.onboarding_id) }}" class="issuance-form"><label>HR-approved employee photo<input type="file" name="employee_photo" accept="image/jpeg,.jpg,.jpeg" required><small>JPEG, at least 200 x 200 pixels, no larger than 1 MB. The app sends it into the credential request and does not retain it locally.</small></label><button type="submit">Create issuance QR <span aria-hidden="true">→</span></button></form>
+      {% endif %}
+    {% elif employee.status == 'issuance_pending' %}
+      <p class="step-number">ISSUANCE IN PROGRESS</p><h2>Waiting for credential acceptance</h2><p>Return to the active QR request or retry this run after the request expires.</p>
+    {% elif employee.status in ['credential_issued', 'presentation_error'] %}
+      <p class="step-number">STEP 2 OF 3</p>
+      <h2>Choose where to use the credential</h2>
+      <p>The employee now holds a verified credential containing reference <strong>{{ employee.employee_id }}</strong> and <strong>{{ employee.email }}</strong>. Use it in either relying-party flow.</p>
+      <div class="verification-choices {% if employee.face_check_capable %}three-up{% endif %}">
+        <section>
+          <p class="choice-label">Onboarding flow</p>
+          <h3>Verify before releasing access</h3>
+          <p>Present the credential, match it to this onboarding record, then create the Temporary Access Pass.</p>
+          <form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><button type="submit">Continue onboarding <span aria-hidden="true">→</span></button></form>
+        </section>
+        <section>
+          <p class="choice-label">Help-desk flow</p>
+          <h3>Verify the caller</h3>
+          <p>Present the same credential to prove who is requesting support without releasing access.</p>
+          <form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><input type="hidden" name="verification_context" value="helpdesk"><button type="submit">Verify help-desk caller <span aria-hidden="true">→</span></button></form>
+        </section>
+        {% if employee.face_check_capable %}
+        <section class="face-check-choice">
+          <p class="choice-label">Face Check flow</p>
+          <h3>Verify credential and live face</h3>
+          <p>Present the credential, capture a live selfie in Authenticator, and compare it with the trusted credential photo.</p>
+          <form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><input type="hidden" name="verification_context" value="facecheck"><button type="submit">Start Face Check <span aria-hidden="true">→</span></button></form>
+        </section>
+        {% endif %}
+      </div>
+    {% elif employee.status == 'presentation_pending' %}
+      <p class="step-number">VERIFICATION IN PROGRESS</p><h2>Waiting for credential presentation</h2><p>{% if employee.presentation_context == 'helpdesk' %}The help desk cannot mark the caller verified until the credential claims match this employee.{% elif employee.presentation_context == 'facecheck' %}Authenticator must complete liveness and return a passing match against the credential photo.{% else %}Access remains locked until the Verified ID callback succeeds.{% endif %}</p>
+    {% elif employee.status == 'helpdesk_verified' %}
+      <p class="step-number success-text">HELP-DESK FLOW · CALLER VERIFIED</p>
+      <h2>Identity confirmed for the help desk</h2>
+      <p>The signed credential matched reference <strong>{{ employee.employee_id }}</strong> and <strong>{{ employee.email }}</strong>. The help desk can continue under its policy; this verification did not reset a password or release a Temporary Access Pass.</p>
+      <div class="verification-choices compact">
+        <section><p class="choice-label">Onboarding remains available</p><h3>Continue onboarding</h3><p>Use the same credential in the separate onboarding flow and release a TAP only after another matching presentation.</p><form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><button type="submit">Start onboarding verification <span aria-hidden="true">→</span></button></form></section>
+        <section><p class="choice-label">Repeatable relying party</p><h3>Verify another support request</h3><p>Create a new state-bound presentation request for a separate help-desk transaction.</p><form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><input type="hidden" name="verification_context" value="helpdesk"><button type="submit">Verify again <span aria-hidden="true">→</span></button></form></section>
+      </div>
+    {% elif employee.status == 'facecheck_verified' %}
+      <p class="step-number success-text">FACE CHECK · IDENTITY VERIFIED</p>
+      <h2>Live face matched the employee credential</h2>
+      <p>Microsoft Entra Verified ID returned a match confidence score of <strong>{{ employee.face_check_score }}%</strong> after liveness and credential validation. No selfie footage was shared with this application, and no TAP was created.</p>
+      <div class="next-actions"><a class="button" href="{{ url_for('index') }}">Choose another scenario</a></div>
+    {% elif employee.status == 'verified' %}
+      <p class="step-number success-text">STEP 3 OF 3 · VERIFIED</p>
+      <h2>{{ employee.access_code_kind }} released</h2>
+      <div class="otp" aria-label="One-time access code">{{ employee.otp }}</div>
+      {% if employee.access_code_kind == 'Temporary Access Pass' %}
+        <p>This one-time Temporary Access Pass is valid for {{ employee.otp_expires_at }} minutes. Use it for initial Entra sign-in, then complete the MFA registration prompt.</p>
+      {% else %}
+        <p>Expires {{ employee.otp_expires_at }}. This code demonstrates the release gate; it is not accepted by Microsoft Entra. Enable Graph TAP mode for real initial sign-in.</p>
+      {% endif %}
+      <div class="next-actions"><a class="button" href="https://aka.ms/mysecurityinfo" target="_blank" rel="noopener">Open Security info <span aria-hidden="true">↗</span></a><a class="secondary" href="{{ url_for('index') }}">Run another demo</a></div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

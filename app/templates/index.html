@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Verified ID demos | {{ organization_name }} Identity{% endblock %}
+{% block content %}
+<section class="split-shell">
+  <div class="intro">
+    <p class="eyebrow">Reusable employee identity</p>
+    <h1>Issue a Verified ID, then prove where it can be trusted.</h1>
+    <p class="lede">Link a pre-created Entra user without requiring account sign-in, issue the employment credential, then demonstrate OTP/TAP release or help-desk identity verification.</p>
+    <div class="prerequisite-flow">
+      <strong>How a trusted employee photo enables Face Check</strong>
+      <ol>
+        <li><span>1</span>HR confirms there is an approved hire.</li>
+        <li><span>2</span>HR supplies an approved employee photo. An identity-proofing provider is optional when policy also requires government-ID assurance.</li>
+        <li><span>3</span>{{ organization_name }} issues the trusted photo and employee claims in a signed credential.</li>
+        <li><span>4</span>When requested, Microsoft Entra Face Check compares a live Authenticator capture to that photo, checks liveness, and returns only the match result.</li>
+      </ol>
+    </div>
+    <div class="fraud-note">
+      <strong>How this prevents forgery</strong>
+      <p>The identity validator establishes who the person is. {{ organization_name }} then issues a cryptographically signed credential to that person's wallet. A forged or edited credential fails signature validation because the attacker cannot reproduce the issuer's signing proof.</p>
+      <p>During presentation, the app verifies the trusted issuer, credential integrity, and the credential reference and UPN for this exact onboarding record. The immutable Entra object ID stays only in server state. A copied document, altered claim, counterfeit card, or credential from another employee cannot unlock the Temporary Access Pass.</p>
+      <p><strong class="scope-label">Demo boundary:</strong> Face Check is available for credentials newly issued with an HR-approved photo after the tenant add-on and updated credential contract are enabled. Older credentials continue to support claim-only presentation.</p>
+      <p><strong class="scope-label">Terminology:</strong> Microsoft Entra Face Check performs live selfie-to-credential-photo matching and liveness. A proofing provider separately validates government identity when that assurance is required.</p>
+      <p><strong class="scope-label">Later use:</strong> onboarding or the help desk can request the issued credential alone or add Face Check for a fresh live match. The verifier receives a confidence result, not the selfie footage.</p>
+      <p><strong class="scope-label">Important limitation:</strong> after acceptance, the credential is bound to the wallet's private key and cannot be forged by copying the card or editing its claims. The exposed point is before acceptance: this demo displays the issuance QR and PIN together, so anyone who obtains both could claim the real credential in their wallet.</p>
+      <p><strong class="scope-label">Production control:</strong> bind a short-lived, single-use issuance request to the same authenticated device session that completed identity proofing, deliver the PIN through a separately verified channel, or require the wallet to present a proofing-provider credential before {{ organization_name }} issues its employee credential.</p>
+      <p><strong class="scope-label">Why use Verified ID after manual proofing:</strong> a person or provider establishes identity once. The signed credential turns that decision into portable, tamper-evident evidence that later systems can verify consistently without repeating document review or trusting email, screenshots, and personal knowledge.</p>
+    </div>
+    <ol class="flow">
+      <li><span>01</span> Issue a Verified ID employment credential</li>
+      <li><span>02</span> Verify it before releasing an OTP or Temporary Access Pass</li>
+      <li><span>03</span> Verify the same credential for the help desk without releasing access</li>
+    </ol>
+    <a class="process-link" href="{{ url_for('process_visual') }}"><span aria-hidden="true">▶</span> Open the Verified ID overview</a>
+  </div>
+  <div class="form-panel demo-entry-panel">
+    <p class="eyebrow">Presentation demos</p>
+    <h2>Choose a credential holder</h2>
+    <p class="entry-lede">Choose an issued credential to demonstrate onboarding OTP/TAP release, help-desk verification, or Face Check. The app never creates the Entra account.</p>
+    {% if missing_config %}
+      <div class="notice warning"><strong>Setup required.</strong> Configure {{ missing_config|join(', ') }} before starting Verified ID requests.</div>
+    {% endif %}
+    {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+    {% if demo_employees %}
+      <form method="post" action="{{ url_for('select_demo_employee') }}" class="employee-picker">
+        <label for="onboarding_id">Issued demo credential</label>
+        <select id="onboarding_id" name="onboarding_id" required>
+          {% for employee in demo_employees %}
+            <option value="{{ employee.onboarding_id }}">{{ employee.given_name }} {{ employee.family_name }} · {{ employee.employee_id }} · {{ employee.email }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Use existing credential <span aria-hidden="true">→</span></button>
+      </form>
+    {% else %}
+      <div class="notice warning"><strong>No issued demo credentials yet.</strong> Link a pre-created account below and complete issuance first.</div>
+    {% endif %}
+
+    <details class="new-employee-disclosure" {% if error or not demo_employees %}open{% endif %}>
+      <summary>Scenario 1 · Issue a credential for a pre-created Entra user</summary>
+      <form method="post" action="{{ url_for('new_onboarding') }}" class="employee-form">
+        <label>Existing user principal name<input type="email" name="user_principal_name" required autocomplete="off" placeholder="new.hire@example.com" value="{{ values.user_principal_name if values else '' }}"><small>Enter the exact UPN. The app retrieves this account; it does not create, enable, update, or delete it.</small></label>
+        <button type="submit">Link account and continue <span aria-hidden="true">→</span></button>
+      </form>
+    </details>
+    <p class="fine-print">The candidate does not sign in. The operator supplies the known UPN, and the picker later lists only onboarding records retained by this demo.</p>
+  </div>
+</section>
+{% endblock %}

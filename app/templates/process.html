@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Verified ID briefing | {{ organization_name }} Identity{% endblock %}
+{% block content %}
+<section class="briefing" data-briefing>
+  <nav class="briefing-nav" aria-label="Briefing pages">
+    <div class="briefing-progress" aria-hidden="true"><span data-progress></span></div>
+    <button type="button" data-page-button="0"><span>01</span>Overview</button>
+    <button type="button" data-page-button="1"><span>02</span>Trust flow</button>
+    <button type="button" data-page-button="2"><span>03</span>Use cases</button>
+    <button type="button" data-page-button="3"><span>04</span>Delivery choice</button>
+    <button type="button" data-page-button="4"><span>05</span>Demo scope</button>
+    <button type="button" data-page-button="5"><span>06</span>Live demo</button>
+  </nav>
+
+  <div class="briefing-stage">
+    <article class="briefing-page" data-page="0">
+      <div class="briefing-copy">
+        <p class="eyebrow">The identity-verification problem</p>
+        <h1>Knowing personal information is not proof of identity.</h1>
+        <p class="briefing-lede">Organizations often ask for a name, Social Security number, date of birth, employee number, security answer, or one-time code. Those checks can confirm what someone knows or receives, but not reliably who is presenting it.</p>
+        <div class="briefing-thesis"><strong>What Verified ID changes</strong><span>A trusted issuer signs identity claims once. The employee holds that tamper-evident credential and presents the minimum required claims with consent for onboarding, help-desk verification, or recovery.</span></div>
+      </div>
+      <aside class="briefing-aside">
+        <p class="aside-label">Why today's checks fail</p>
+        <ol>
+          <li><span>1</span><div><strong>Knowledge is transferable</strong><p>Names, SSNs, birthdays, and employee details can be stolen, purchased, or socially engineered.</p></div></li>
+          <li><span>2</span><div><strong>Codes prove channel access</strong><p>An emailed or texted code may reach a compromised mailbox, SIM, or device.</p></div></li>
+          <li><span>3</span><div><strong>Manual review varies</strong><p>Agents make inconsistent decisions and handle more sensitive information than the request needs.</p></div></li>
+        </ol>
+      </aside>
+    </article>
+
+    <article class="briefing-page" data-page="1" hidden>
+      <header class="page-heading"><p class="eyebrow">How decentralized identity works</p><h2>Trust moves as signed evidence, not as a copied identity record.</h2><p>The issuer signs claims with a key tied to its decentralized identifier (DID). The wallet holds the credential and its own key. During presentation, the verifier checks the issuer signature, holder proof, credential status, request state, and required claims.</p></header>
+      <div class="did-diagram" role="img" aria-label="Issuer creates a signed credential, holder stores and presents it, verifier validates issuer keys and credential status through decentralized identifiers">
+        <div class="did-party issuer"><span class="did-icon">I</span><p>Authoritative party</p><h3>Issuer</h3><small>HR system, employer, or identity-proofing provider</small></div>
+        <div class="did-connection"><strong>Signed credential</strong><span>Claims + issuer proof</span><i aria-hidden="true">→</i></div>
+        <div class="did-party holder"><span class="did-icon">H</span><p>Employee controlled</p><h3>Holder wallet</h3><small>Microsoft Authenticator stores the credential and asks for consent</small></div>
+        <div class="did-connection"><strong>Presentation</strong><span>Only requested claims</span><i aria-hidden="true">→</i></div>
+        <div class="did-party verifier"><span class="did-icon">V</span><p>Relying application</p><h3>Verifier</h3><small>Onboarding portal, recovery service, or help desk</small></div>
+        <div class="did-trust"><span>DID trust layer</span><strong>The issuer's DID resolves to verification keys. Signature and status checks prove who issued the credential, whether it changed, whether it was revoked, and that the current wallet can present it.</strong></div>
+      </div>
+      <div class="truth-strip"><strong>What it is not</strong><span>Identity claims are not public.</span><span>The wallet does not grant access by itself.</span><span>The verifier still applies policy.</span></div>
+    </article>
+
+    <article class="briefing-page" data-page="2" hidden>
+      <header class="page-heading"><p class="eyebrow">One credential, different decisions</p><h2>Reuse trusted employee evidence at the moments impersonation matters.</h2></header>
+      <div class="use-case-grid">
+        <article><span>01</span><p class="case-trigger">Before employment access</p><h3>Remote onboarding</h3><p>Match verified identity evidence to the approved hire, issue the employee credential, then release a TAP for first sign-in.</p><strong>Face match/liveness may be needed here</strong></article>
+        <article><span>02</span><p class="case-trigger">Before the call proceeds</p><h3>Help-desk caller verification</h3><p>Send a challenge tied to the ticket. Match the presented employee ID and UPN to the caller before discussing or changing the account.</p><strong>Existing employee credential is ideal</strong></article>
+        <article><span>03</span><p class="case-trigger">When normal recovery fails</p><h3>Password and MFA recovery</h3><p>Verify the employee before a governed reset, authentication-method replacement, or Temporary Access Pass.</p><strong>Requires a fallback if the wallet is lost</strong></article>
+      </div>
+      <aside class="face-id-note"><strong>Two different face controls</strong><p><strong>Face ID</strong> can unlock the wallet locally; the verifier receives no biometric result. <strong>Microsoft Entra Face Check</strong> is a premium Verified ID feature that compares a live Authenticator capture with a trusted photo claim in the credential and performs liveness. Microsoft returns the verifier a confidence result, not the selfie. A third-party provider is needed only for independent government-ID proofing, not for Face Check itself.</p></aside>
+    </article>
+
+    <article class="briefing-page" data-page="3" hidden>
+      <header class="page-heading"><p class="eyebrow">Customer choice</p><h2>Self-issue what the customer can authoritatively attest. Buy proofing they cannot.</h2></header>
+      <div class="delivery-columns">
+        <section><div class="delivery-title"><span>Build</span><h3>Customer-operated issuer and verifier</h3></div><ul><li><strong>Best for:</strong> employment status and employee identifiers sourced from HR.</li><li><strong>Pros:</strong> control of claims, policy, integration, branding, and operating data.</li><li><strong>Tradeoffs:</strong> customer owns secure issuance, wallet handoff, callbacks, revocation, monitoring, privacy, and support.</li><li><strong>Limit:</strong> self-asserting a face match does not create independent identity assurance.</li></ul></section>
+        <section><div class="delivery-title provider"><span>Buy</span><h3>Identity-proofing provider</h3></div><ul><li><strong>Best for:</strong> government-ID validation, document coverage, independent identity assurance, fraud signals, and recovery when every registered method and wallet are unavailable.</li><li><strong>Pros:</strong> specialized controls, geographic/document support, and maintained proofing capabilities.</li><li><strong>Tradeoffs:</strong> licensing, vendor dependency, data-processing review, user handoffs, and provider-specific assurance.</li><li><strong>Limit:</strong> a provider is not required for Entra Face Check; the customer still owns the source-photo trust, HR matching, recovery policy, and final access decision.</li></ul></section>
+      </div>
+      <div class="decision-table" role="table" aria-label="Recommended delivery model by use case">
+        <div class="decision-head" role="row"><strong>Use case</strong><strong>Recommended pattern</strong><strong>Why</strong></div>
+        <div role="row"><span>Remote onboarding</span><strong>Hybrid</strong><span>Provider proves the person; customer matches HR and issues employment evidence.</span></div>
+        <div role="row"><span>Help-desk caller</span><strong>Customer-operated</strong><span>Reuse a trusted employee credential already issued from authoritative HR data.</span></div>
+        <div role="row"><span>Full account recovery</span><strong>Hybrid fallback</strong><span>First use registered methods or the employee credential. If the password, methods, device, and wallet are all unavailable, route to provider proofing, match the result to HR, then issue a tightly governed recovery method.</span></div>
+      </div>
+    </article>
+
+    <article class="briefing-page" data-page="4" hidden>
+      <header class="page-heading"><p class="eyebrow">What this implementation proves</p><h2>Issue once, then choose an onboarding or help-desk verification flow.</h2></header>
+      <div class="demo-flow branching-flow">
+        <article><span>1</span><h3>Link employee</h3><p>Resolve a pre-created Entra user and privately retain its immutable object ID.</p></article><i>→</i>
+        <article><span>2</span><h3>Issue credential</h3><p>Sign a credential reference and UPN into Microsoft Authenticator.</p></article><i>→</i>
+        <article><span>3A</span><h3>Onboarding</h3><p>Present the credential, match the hire, and release a Temporary Access Pass.</p></article><i class="branch-or">or</i>
+        <article><span>3B</span><h3>Help desk</h3><p>Present the credential and validate the caller without releasing access.</p></article>
+      </div>
+      <div class="scope-grid"><section><p class="scope-label">Shared prerequisite</p><h3>Pre-created account</h3><p>The employer creates the Entra object first. Verified ID issuance then establishes the reusable employment credential without candidate sign-in.</p></section><section><p class="scope-label">Two core flows</p><h3>Onboarding or help desk</h3><p>Onboarding releases a real TAP after verification. Help desk validates the caller but changes no account data.</p></section><section><p class="scope-label">Optional Microsoft branch</p><h3>Entra Face Check</h3><p>New photo-enabled credentials can invoke first-party live face matching and liveness when the tenant add-on and updated credential contract are enabled.</p></section></div>
+    </article>
+
+    <article class="briefing-page launch-page" data-page="5" hidden>
+      <div><p class="eyebrow">Live demonstration</p><h2>Link the employee. Issue once. Choose the verification flow.</h2><p>After the employee receives the credential, choose onboarding to verify and release a TAP, or help desk to verify the caller without changing the account.</p><a class="button launch-button" href="{{ url_for('index') }}">Start employee demo <span aria-hidden="true">→</span></a></div>
+      <aside><p class="aside-label">Talk track</p><blockquote>“The help desk does not trust the caller because they know James's details. It trusts a current, signed credential issued to James and presented with holder consent for this specific transaction.”</blockquote><div class="launch-boundary"><strong>Biometric boundary</strong><p>Face ID unlocks the wallet locally. Entra Face Check can perform first-party live matching and liveness when the credential contains a trusted photo.</p></div></aside>
+    </article>
+
+    <footer class="briefing-controls">
+      <button type="button" class="briefing-control secondary" data-previous aria-label="Previous page">← <span>Previous</span></button>
+      <p><span data-current>1</span> / <span data-total>6</span></p>
+      <button type="button" class="briefing-control" data-next><span>Next</span> →</button>
+    </footer>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  (() => {
+    const root = document.querySelector("[data-briefing]");
+    const pages = Array.from(root.querySelectorAll("[data-page]"));
+    const pageButtons = Array.from(root.querySelectorAll("[data-page-button]"));
+    const previous = root.querySelector("[data-previous]");
+    const next = root.querySelector("[data-next]");
+    const currentLabel = root.querySelector("[data-current]");
+    const progress = root.querySelector("[data-progress]");
+    let current = 0;
+
+    function showPage(index, updateHash = true) {
+      current = Math.max(0, Math.min(pages.length - 1, index));
+      pages.forEach((page, pageIndex) => { page.hidden = pageIndex !== current; });
+      pageButtons.forEach((button, pageIndex) => {
+        const active = pageIndex === current;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-current", active ? "page" : "false");
+      });
+      previous.disabled = current === 0;
+      next.disabled = current === pages.length - 1;
+      currentLabel.textContent = String(current + 1);
+      progress.style.width = `${((current + 1) / pages.length) * 100}%`;
+      if (updateHash) history.replaceState(null, "", `#page-${current + 1}`);
+    }
+
+    pageButtons.forEach((button) => button.addEventListener("click", () => showPage(Number(button.dataset.pageButton))));
+    previous.addEventListener("click", () => showPage(current - 1));
+    next.addEventListener("click", () => showPage(current + 1));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight" || event.key === "PageDown") showPage(current + 1);
+      if (event.key === "ArrowLeft" || event.key === "PageUp") showPage(current - 1);
+    });
+
+    const initialPage = Number(location.hash.replace("#page-", "")) - 1;
+    showPage(Number.isInteger(initialPage) && initialPage >= 0 ? initialPage : 0, false);
+  })();
+</script>
+{% endblock %}

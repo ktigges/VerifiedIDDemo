@@ -1,0 +1,20 @@
+{
+  "azTenantId": "YOUR-ENTRA-TENANT-ID",
+  "azClientId": "YOUR-APP-REGISTRATION-CLIENT-ID",
+  "azClientSecret": "YOUR-APP-CLIENT-SECRET",
+  "DidAuthority": "did:web:YOUR-DOMAIN-OR-STORAGE-HOST",
+  "CredentialManifest": "https://verifiedid.did.msidentity.com/v1.0/tenants/YOUR-TENANT-ID/verifiableCredentials/contracts/YOUR-CONTRACT-ID/manifest",
+  "CredentialType": "VerifiedEmployeeCard",
+  "acceptedIssuers": "did:web:YOUR-DOMAIN-OR-STORAGE-HOST",
+  "organizationName": "YOUR-ORGANIZATION-NAME",
+  "clientName": "Employee Verified ID Demo",
+  "purpose": "Present your employee credential to continue",
+  "issuancePinCodeLength": 4,
+  "accessMode": "graphTap",
+  "tapLifetimeMinutes": 60,
+  "faceCheckMatchConfidenceThreshold": 70,
+  "port": 8080,
+  "debug": true,
+  "publicBaseUrl": "https://YOUR-PUBLIC-HTTPS-HOST",
+  "msIdentityHostName": "https://verifiedid.did.msidentity.com/v1.0/"
+}

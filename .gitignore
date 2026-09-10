@@ -1,0 +1,27 @@
+config.json
+credentials/VerifiedEmployeeCard-display.json
+credentials/VerifiedEmployeeCard-rules.json
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.pytest_cache/
+*.log
+.callback_api_key
+.demo_onboarding_state.json
+.demo_onboarding_state.tmp-*
+.idea/
+.vscode/
+.copilot/
+
+# Local briefing exports and tunnel helper
+VerifiedID.html
+*.ppt
+*.pptx
+startngr.sh
+
+# Keep all hidden local/editor/runtime paths out of the shared repository.
+.*
+!.gitignore

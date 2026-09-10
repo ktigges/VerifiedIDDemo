@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} | {{ organization_name }} Identity{% endblock %}
+{% block content %}
+<section class="request-shell">
+  <div class="request-copy">
+    <p class="eyebrow">{{ employee.employee_id }}</p>
+    <h1>{{ action }}</h1>
+    <p class="lede">{{ message }}</p>
+    <div class="waiting"><span></span> Waiting for Microsoft Authenticator</div>
+    {% if pin %}<div class="pin"><small>Issuance PIN</small><strong>{{ pin }}</strong></div>{% endif %}
+    <a class="secondary" href="{{ return_url }}">Cancel and return</a>
+  </div>
+  <div class="qr-panel">
+    {% if qr_code %}
+      <img class="request-qr" src="{{ qr_code }}" alt="Microsoft Authenticator request QR code">
+    {% else %}
+      <div id="qrcode" aria-label="Microsoft Authenticator request QR code"></div>
+      <p id="qr-error" class="qr-error" hidden>The QR code could not be rendered. Use Open in Authenticator on the phone.</p>
+    {% endif %}
+    <a class="mobile-link" href="{{ request_url }}">Open in Authenticator on this device</a>
+    <p>On another device, scan this QR code with Microsoft Authenticator. Wallet verification requires the holder to open the request and consent; this is not an unsolicited push.</p>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/qrcode.min.js') }}"></script>
+<script>
+  const qrContainer = document.getElementById("qrcode");
+  if (qrContainer) {
+    try {
+      new QRCode(qrContainer, { text: {{ request_url|tojson }}, width: 280, height: 280 });
+    } catch (error) {
+      document.getElementById("qr-error").hidden = false;
+      console.error("QR rendering failed", error);
+    }
+  }
+  const terminalStates = new Set(["credential_issued", "verified", "helpdesk_verified", "facecheck_verified", "issuance_error", "presentation_error"]);
+  const timer = setInterval(async () => {
+    const response = await fetch({{ status_url|tojson }}, { cache: "no-store" });
+    if (!response.ok) return;
+    const result = await response.json();
+    if (terminalStates.has(result.status)) {
+      clearInterval(timer);
+      window.location.assign({{ return_url|tojson }});
+    }
+  }, 2000);
+</script>
+{% endblock %}
