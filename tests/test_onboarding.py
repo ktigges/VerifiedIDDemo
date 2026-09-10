@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import re
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -317,6 +318,37 @@ class OnboardingFlowTests(unittest.TestCase):
         self.assertEqual(follow_up.status_code, 200)
         follow_up_payload = verified_id_client.return_value.create_presentation_request.call_args.args[0]
         self.assertEqual(follow_up_payload["requestedCredentials"][0]["purpose"], self.app.config["DEMO_CONFIG"]["purpose"])
+
+    @patch("app.VerifiedIdClient")
+    def test_one_time_helpdesk_link_is_not_consumed_by_get(self, verified_id_client):
+        verified_id_client.return_value.create_presentation_request.return_value = {
+            "url": "openid-vc://helpdesk-request"
+        }
+        onboarding_id = self._create_employee()
+        update_onboarding(onboarding_id, status="credential_issued")
+
+        created = self.client.post(
+            f"/onboarding/{onboarding_id}/invite",
+            data={"verification_context": "helpdesk"},
+        )
+        token_match = re.search(rb"https://demo\.example/verify/([A-Za-z0-9_-]+)", created.data)
+
+        self.assertEqual(created.status_code, 200)
+        self.assertIsNotNone(token_match)
+        token = token_match.group(1).decode()
+        self.assertNotIn(token, employee_store._state_path.read_text(encoding="utf-8"))
+        preview = self.client.get(f"/verify/{token}")
+        self.assertEqual(preview.status_code, 200)
+        verified_id_client.return_value.create_presentation_request.assert_not_called()
+
+        started = self.client.post(f"/verify/{token}/start")
+        reused = self.client.post(f"/verify/{token}/start")
+
+        self.assertEqual(started.status_code, 200)
+        self.assertEqual(reused.status_code, 410)
+        verified_id_client.return_value.create_presentation_request.assert_called_once()
+        payload = verified_id_client.return_value.create_presentation_request.call_args.args[0]
+        self.assertIn("help-desk request", payload["requestedCredentials"][0]["purpose"])
 
     @patch("app.VerifiedIdClient")
     def test_face_check_presentation_requires_passing_score_without_creating_tap(self, verified_id_client):

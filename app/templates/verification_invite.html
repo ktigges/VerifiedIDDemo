@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Verify employment | {{ organization_name }} Identity{% endblock %}
+{% block content %}
+<section class="workspace">
+  <div class="action-panel">
+    {% if unavailable %}
+      <p class="step-number">INVITATION UNAVAILABLE</p>
+      <h2>This verification link cannot be used</h2>
+      <p>It has expired, has already been used, or was replaced. Request a new link from {{ organization_name }}.</p>
+    {% else %}
+      <p class="step-number">{% if presentation_context == 'helpdesk' %}HELP-DESK VERIFICATION{% else %}ONBOARDING VERIFICATION{% endif %}</p>
+      <h2>Verify your employee credential</h2>
+      <p>{{ organization_name }} is requesting the credential issued for <strong>{{ employee.email }}</strong>. Starting creates a short-lived Microsoft Authenticator request and uses this invitation.</p>
+      <form method="post" action="{{ url_for('start_invited_verification', token=token) }}"><button type="submit">Start verification <span aria-hidden="true">→</span></button></form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

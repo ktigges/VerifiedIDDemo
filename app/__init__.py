@@ -16,9 +16,12 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from app.config import load_config, validate_runtime_config
 from app.employees import (
 	claims_for_employee,
+	consume_verification_invite,
 	create_onboarding,
+	create_verification_invite,
 	find_by_state,
 	get_onboarding,
+	get_verification_invite,
 	issue_otp,
 	list_demo_employees,
 	update_onboarding,
@@ -215,6 +218,57 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 			abort(400, description="Unsupported verification context.")
 		if presentation_context == "facecheck" and not record.get("face_check_capable"):
 			abort(400, description="This credential was issued without a Face Check photo.")
+		return _create_presentation_response(record, presentation_context)
+
+	@app.post("/onboarding/<onboarding_id>/invite")
+	def create_presentation_invite(onboarding_id: str):
+		record = get_onboarding(onboarding_id)
+		if not record:
+			abort(404)
+		if record["status"] not in {"credential_issued", "presentation_error", "helpdesk_verified", "facecheck_verified"}:
+			return redirect(url_for("onboarding", onboarding_id=onboarding_id))
+		presentation_context = request.form.get("verification_context", "onboarding")
+		if presentation_context not in {"onboarding", "helpdesk"}:
+			abort(400, description="Unsupported invitation context.")
+		token = create_verification_invite(onboarding_id, presentation_context, lifetime_minutes=15)
+		if not token:
+			abort(404)
+		invitation_url = (
+			public_base_url(request.url_root, config.get("publicBaseUrl", ""))
+			+ f"verify/{token}"
+		)
+		return render_template(
+			"invitation_created.html",
+			employee=record,
+			invitation_url=invitation_url,
+			presentation_context=presentation_context,
+		)
+
+	@app.get("/verify/<token>")
+	def verification_invite(token: str):
+		record = get_verification_invite(token)
+		if not record:
+			return render_template("verification_invite.html", unavailable=True), 410
+		return render_template(
+			"verification_invite.html",
+			employee=record,
+			presentation_context=record["verification_invite_context"],
+			token=token,
+			unavailable=False,
+		)
+
+	@app.post("/verify/<token>/start")
+	def start_invited_verification(token: str):
+		record = consume_verification_invite(token)
+		if not record:
+			return render_template("verification_invite.html", unavailable=True), 410
+		if record["status"] not in {"credential_issued", "presentation_error", "helpdesk_verified", "facecheck_verified"}:
+			return render_template("verification_invite.html", unavailable=True), 410
+		_require_runtime_config(config)
+		return _create_presentation_response(record, record["verification_invite_context"])
+
+	def _create_presentation_response(record: dict[str, Any], presentation_context: str):
+		onboarding_id = record["onboarding_id"]
 		presentation_purpose = {
 			"helpdesk": "Verify that you are the employee associated with this help-desk request",
 			"facecheck": "Verify your employee credential with a live Microsoft Entra Face Check",

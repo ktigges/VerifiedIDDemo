@@ -181,8 +181,11 @@ Set `publicBaseUrl` to ngrok's HTTPS origin, restart Flask, and open that URL. A
 1. Open `/` through the public endpoint.
 2. Choose a demo employee and select **Use existing credential**.
 3. Choose standard onboarding, help desk, or **Start Face Check**.
-4. For Face Check, scan the QR, consent to sharing, and complete the live capture in Authenticator.
-5. The app requires matching `employeeId`/`email` claims and a Face Check score at or above the configured threshold. It shows the score but receives no selfie footage and creates no TAP.
+4. Start verification immediately, or select **Create one-time link** for onboarding or help desk and send the resulting 15-minute URL to the employee.
+5. Opening an invitation does not consume it. Selecting **Start verification** consumes it once and creates the short-lived Microsoft presentation request.
+6. On another device, scan the QR. On the phone holding the credential, select **Open in Authenticator on this device** instead.
+7. For Face Check, consent to sharing and complete the live capture in Authenticator.
+8. The app requires matching `employeeId`/`email` claims and a Face Check score at or above the configured threshold. It shows the score but receives no selfie footage and creates no TAP.
 
 This path creates neither an account nor another credential.
 
@@ -203,6 +206,7 @@ python -m unittest discover -s tests -p 'test_*.py'
 ## Security boundaries
 
 - Operator pages are unauthenticated. Production must authenticate and authorize the exact-UPN lookup and issuance workflow.
+- One-time verification invitations expire after 15 minutes, store only a SHA-256 token hash, and are consumed only when the holder starts verification so link scanners do not burn them.
 - Issuance QR and PIN appear together; production must bind issuance to the proofed session.
 - TAP values appear in-browser; production needs an approved secure delivery channel.
 - Prefer managed identity or certificate authentication where supported.

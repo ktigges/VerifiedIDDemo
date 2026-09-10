@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}One-time verification link | {{ organization_name }} Identity{% endblock %}
+{% block content %}
+<section class="workspace">
+  <div class="action-panel">
+    <p class="step-number">ONE-TIME INVITATION</p>
+    <h2>Send this verification link</h2>
+    <p>This link is valid for 15 minutes and can start verification once. Opening the page does not consume it; selecting Start verification does.</p>
+    <label class="share-link">{% if presentation_context == 'helpdesk' %}Help-desk verification link{% else %}Onboarding verification link{% endif %}<input id="invitation-url" value="{{ invitation_url }}" readonly></label>
+    <div class="next-actions">
+      <button type="button" id="copy-invitation">Copy link</button>
+      <a class="secondary" href="{{ invitation_url }}">Preview invitation</a>
+      <a class="secondary" href="{{ url_for('onboarding', onboarding_id=employee.onboarding_id) }}">Return to employee</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.getElementById("copy-invitation").addEventListener("click", async (event) => {
+    const input = document.getElementById("invitation-url");
+    await navigator.clipboard.writeText(input.value);
+    event.currentTarget.textContent = "Copied";
+  });
+</script>
+{% endblock %}

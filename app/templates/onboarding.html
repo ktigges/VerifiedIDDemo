@@ -43,12 +43,14 @@
           <h3>Verify before releasing access</h3>
           <p>Present the credential, match it to this onboarding record, then create the Temporary Access Pass.</p>
           <form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><button type="submit">Continue onboarding <span aria-hidden="true">→</span></button></form>
+          <form method="post" action="{{ url_for('create_presentation_invite', onboarding_id=employee.onboarding_id) }}"><button type="submit" class="secondary-action">Create one-time link</button></form>
         </section>
         <section>
           <p class="choice-label">Help-desk flow</p>
           <h3>Verify the caller</h3>
           <p>Present the same credential to prove who is requesting support without releasing access.</p>
           <form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><input type="hidden" name="verification_context" value="helpdesk"><button type="submit">Verify help-desk caller <span aria-hidden="true">→</span></button></form>
+          <form method="post" action="{{ url_for('create_presentation_invite', onboarding_id=employee.onboarding_id) }}"><input type="hidden" name="verification_context" value="helpdesk"><button type="submit" class="secondary-action">Create one-time link</button></form>
         </section>
         {% if employee.face_check_capable %}
         <section class="face-check-choice">
@@ -66,8 +68,8 @@
       <h2>Identity confirmed for the help desk</h2>
       <p>The signed credential matched reference <strong>{{ employee.employee_id }}</strong> and <strong>{{ employee.email }}</strong>. The help desk can continue under its policy; this verification did not reset a password or release a Temporary Access Pass.</p>
       <div class="verification-choices compact">
-        <section><p class="choice-label">Onboarding remains available</p><h3>Continue onboarding</h3><p>Use the same credential in the separate onboarding flow and release a TAP only after another matching presentation.</p><form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><button type="submit">Start onboarding verification <span aria-hidden="true">→</span></button></form></section>
-        <section><p class="choice-label">Repeatable relying party</p><h3>Verify another support request</h3><p>Create a new state-bound presentation request for a separate help-desk transaction.</p><form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><input type="hidden" name="verification_context" value="helpdesk"><button type="submit">Verify again <span aria-hidden="true">→</span></button></form></section>
+        <section><p class="choice-label">Onboarding remains available</p><h3>Continue onboarding</h3><p>Use the same credential in the separate onboarding flow and release a TAP only after another matching presentation.</p><form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><button type="submit">Start onboarding verification <span aria-hidden="true">→</span></button></form><form method="post" action="{{ url_for('create_presentation_invite', onboarding_id=employee.onboarding_id) }}"><button type="submit" class="secondary-action">Create one-time link</button></form></section>
+        <section><p class="choice-label">Repeatable relying party</p><h3>Verify another support request</h3><p>Create a new state-bound presentation request for a separate help-desk transaction.</p><form method="post" action="{{ url_for('start_presentation', onboarding_id=employee.onboarding_id) }}"><input type="hidden" name="verification_context" value="helpdesk"><button type="submit">Verify again <span aria-hidden="true">→</span></button></form><form method="post" action="{{ url_for('create_presentation_invite', onboarding_id=employee.onboarding_id) }}"><input type="hidden" name="verification_context" value="helpdesk"><button type="submit" class="secondary-action">Create one-time link</button></form></section>
       </div>
     {% elif employee.status == 'facecheck_verified' %}
       <p class="step-number success-text">FACE CHECK · IDENTITY VERIFIED</p>

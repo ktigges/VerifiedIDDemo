@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 import json
 import os
@@ -62,6 +63,10 @@ def create_onboarding(user: dict[str, Any]) -> dict[str, Any]:
         "issuance_state": None,
         "presentation_state": None,
         "presentation_context": None,
+        "verification_invite_hash": None,
+        "verification_invite_context": None,
+        "verification_invite_expires_at": None,
+        "verification_invite_used": False,
         "face_check_capable": False,
         "face_check_score": None,
         "otp": None,
@@ -119,6 +124,62 @@ def update_onboarding(onboarding_id: str, **changes: Any) -> dict[str, Any] | No
         record.update(changes)
         _save_records()
         return deepcopy(record)
+
+
+def create_verification_invite(
+    onboarding_id: str,
+    context: str,
+    lifetime_minutes: int = 15,
+) -> str | None:
+    """Create a single-use invitation while storing only its token hash."""
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    with _lock:
+        record = _records.get(onboarding_id)
+        if not record:
+            return None
+        record.update(
+            verification_invite_hash=token_hash,
+            verification_invite_context=context,
+            verification_invite_expires_at=(
+                datetime.now(UTC) + timedelta(minutes=lifetime_minutes)
+            ).isoformat(),
+            verification_invite_used=False,
+        )
+        _save_records()
+    return token
+
+
+def get_verification_invite(token: str) -> dict[str, Any] | None:
+    """Return an active invitation without consuming it."""
+    with _lock:
+        return _find_verification_invite(token, consume=False)
+
+
+def consume_verification_invite(token: str) -> dict[str, Any] | None:
+    """Atomically consume an active invitation."""
+    with _lock:
+        return _find_verification_invite(token, consume=True)
+
+
+def _find_verification_invite(token: str, consume: bool) -> dict[str, Any] | None:
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    now = datetime.now(UTC)
+    for record in _records.values():
+        stored_hash = record.get("verification_invite_hash")
+        if not isinstance(stored_hash, str) or not secrets.compare_digest(stored_hash, token_hash):
+            continue
+        try:
+            expires_at = datetime.fromisoformat(record["verification_invite_expires_at"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if record.get("verification_invite_used") or expires_at <= now:
+            return None
+        if consume:
+            record["verification_invite_used"] = True
+            _save_records()
+        return deepcopy(record)
+    return None
 
 
 def issue_otp(onboarding_id: str, lifetime_minutes: int = 10) -> dict[str, Any] | None:

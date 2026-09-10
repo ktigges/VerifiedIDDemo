@@ -85,6 +85,8 @@ input:focus, select:focus { outline: 3px solid #b8d7ff; border-color: var(--blue
 .issuance-form small { color: var(--muted); font-weight: 400; line-height: 1.5; }
 button, .button { border: 0; border-radius: 4px; padding: 14px 18px; background: var(--blue); color: white; font: inherit; font-weight: 800; cursor: pointer; text-decoration: none; display: inline-flex; gap: 18px; justify-content: center; }
 button:hover, .button:hover { background: var(--blue-dark); }
+button.secondary-action { border: 1px solid var(--blue); color: var(--blue); background: transparent; }
+button.secondary-action:hover { color: white; background: var(--blue-dark); }
 .cleanup-form { border-top: 1px solid var(--line); padding-top: 24px; margin-top: 34px !important; }
 button.danger { background: #b42318; } button.danger:hover { background: #8f1c13; }
 .fine-print { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 22px; }
@@ -116,6 +118,8 @@ button.danger { background: #b42318; } button.danger:hover { background: #8f1c13
 .verification-choices h3 { margin: 0 0 12px; font-family: Georgia, serif; font-size: 24px; font-weight: 400; }
 .verification-choices section > p:not(.choice-label) { flex: 1; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
 .verification-choices form { margin-top: 20px; }.verification-choices button { width: 100%; }
+.verification-choices form + form { margin-top: 10px; }
+.share-link { display: grid; gap: 10px; margin-top: 28px; }.share-link input { font-family: ui-monospace, monospace; font-size: 13px; }
 .verification-choices.compact { margin-top: 26px; }
 .verification-choices.three-up { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .verification-choices .face-check-choice { border-color: #c69214; }
@@ -208,7 +212,7 @@ button.danger { background: #b42318; } button.danger:hover { background: #8f1c13
 .launch-page { display: grid; grid-template-columns: 1.1fr .9fr; gap: clamp(50px, 8vw, 120px); align-items: center; color: white; background: #172126; }.launch-page[hidden] { display: none; }.launch-page > div > p:not(.eyebrow) { max-width: 700px; color: #c7d0d3; font-size: 18px; line-height: 1.65; }.launch-button { margin-top: 24px; background: #0b62d6; }.launch-page aside { padding: 32px; border-top: 5px solid #75c9b7; background: #253239; }.launch-page blockquote { margin: 24px 0; font-family: Georgia, serif; font-size: 24px; line-height: 1.45; }.launch-boundary { padding-top: 20px; border-top: 1px solid #435157; }.launch-boundary strong { color: #75c9b7; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }.launch-boundary p { color: #c7d0d3; font-size: 13px; line-height: 1.5; }
 .briefing-page[hidden], .briefing-page[data-page="0"][hidden], .launch-page[hidden] { display: none; }
 .briefing-controls { display: flex; align-items: center; justify-content: space-between; padding: 0 clamp(24px, 5vw, 72px); border-top: 1px solid #c8cfca; background: white; }.briefing-controls p { margin: 0; color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; }.briefing-control { min-width: 120px; padding: 11px 16px; }.briefing-control.secondary { color: var(--blue); background: transparent; }.briefing-control.secondary:hover { color: white; }.briefing-control:disabled { cursor: default; opacity: .35; }.briefing-control:disabled:hover { color: var(--blue); background: transparent; }
-@keyframes briefing-enter { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes briefing-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pulse { 50% { opacity: .25; transform: scale(.75); } }
 @keyframes journey-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes step-arrive { to { opacity: 1; transform: translateY(0); } }
