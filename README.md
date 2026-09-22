@@ -77,6 +77,8 @@ cp credentials/VerifiedEmployeeCard-rules.example.json credentials/VerifiedEmplo
 
 Replace the `YOUR-...` values in `config.json`. Publish the local display and rules JSON as an Entra custom credential named `VerifiedEmployeeCard`, then add its issuer DID and manifest URL to `config.json`.
 
+This demo uses `entraClientSecret` for simple local setup. Production deployments should authenticate with a certificate or managed identity instead of a client secret.
+
 Face Check requires a newly issued credential with a `photo` claim mapped from input claim `photo` and displayed as `image/jpg;base64url`.
 
 Never commit `config.json`, `.env`, `.callback_api_key`, or `.demo_onboarding_state.json`.

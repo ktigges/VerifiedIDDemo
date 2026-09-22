@@ -56,6 +56,8 @@ Both service clients use the configured app registration with the client-credent
 - Graph scope: `https://graph.microsoft.com/.default`
 - Verified ID scope: `3db474b9-6a0c-4840-96ac-1fceb342124f/.default`
 
+The client secret is used only to keep this local demo simple. A production deployment should use certificate-based authentication or managed identity and keep credentials in a managed secret store.
+
 The Verified ID token must contain an accepted Verifiable Credentials application role. Graph operations require the application permissions listed in the README and tenant admin consent.
 
 ## Page and Action Flow
@@ -266,7 +268,7 @@ Values are loaded from `config.json`. Matching environment variables override fi
 |---|---:|---|
 | `entraTenantId` | Required | Entra tenant used for MSAL authority |
 | `entraClientId` | Required | App registration client ID |
-| `entraClientSecret` | Required | App-only client credential |
+| `entraClientSecret` | Required for this demo | Client secret used for simple local setup; use a certificate or managed identity in production |
 | `DidAuthority` | Required | Verified ID issuer DID and default accepted issuer |
 | `CredentialManifest` | Required | Published custom credential manifest URL |
 | `CredentialType` | `VerifiedEmployeeCard` | Issued and requested credential type |
