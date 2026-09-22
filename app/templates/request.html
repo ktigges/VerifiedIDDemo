@@ -34,7 +34,7 @@
       console.error("QR rendering failed", error);
     }
   }
-  const terminalStates = new Set(["credential_issued", "verified", "helpdesk_verified", "facecheck_verified", "issuance_error", "presentation_error"]);
+  const terminalStates = new Set(["credential_issued_pending_approval", "credential_issued", "verified", "helpdesk_verified", "facecheck_verified", "issuance_error", "presentation_error"]);
   const timer = setInterval(async () => {
     const response = await fetch({{ status_url|tojson }}, { cache: "no-store" });
     if (!response.ok) return;

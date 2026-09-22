@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Employee credential | {{ organization_name }} Identity{% endblock %}
+{% block content %}
+<section class="workspace">
+  <div class="action-panel">
+    {% if unavailable %}
+      <p class="step-number">INVITATION UNAVAILABLE</p>
+      <h2>This credential link cannot be used</h2>
+      <p>{% if request_failed %}The credential service could not start the request. Ask the onboarding operator to send a new link.{% else %}It has expired, has already been used, or was replaced. Ask the onboarding operator for a new link.{% endif %}</p>
+    {% else %}
+      <p class="step-number">EMPLOYEE CREDENTIAL</p>
+      <h2>Complete credential onboarding</h2>
+      <p>This single-use link is for the employee account <strong>{{ employee.email }}</strong>. Add the approved JPEG identity photo, then continue in Microsoft Authenticator. Account activation still requires operator approval.</p>
+      {% if error %}<div class="notice error"><strong>Photo rejected.</strong> {{ error }}</div>{% endif %}
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('start_invited_issuance', token=token) }}" class="issuance-form">
+        <label>Approved employee photo<input type="file" name="employee_photo" accept="image/jpeg,.jpg,.jpeg" required><small>JPEG, at least 200 x 200 pixels, no larger than 1 MB. The app sends it into the credential request and does not retain it locally.</small></label>
+        <button type="submit">Continue to Authenticator <span aria-hidden="true">→</span></button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

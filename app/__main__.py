@@ -1,3 +1,10 @@
+"""Run the local Verified ID demo.
+
+Author: Kevin Tigges
+Date: 2026-09-22
+Demo only; not authorized by Microsoft and not for production use.
+"""
+
 import logging
 
 from app import create_app
@@ -11,6 +18,7 @@ startup_log = logging.getLogger("startup")
 startup_log.info("Starting Microsoft Entra Verified ID employee demo")
 startup_log.info("Loading configuration, routes, and service clients")
 
+# Build the application and apply its runtime logging preference.
 app = create_app()
 config = app.config["DEMO_CONFIG"]
 logging.getLogger().setLevel(logging.DEBUG if config["debug"] else logging.INFO)

@@ -34,35 +34,32 @@
     <a class="process-link" href="{{ url_for('process_visual') }}"><span aria-hidden="true">▶</span> Open the Verified ID overview</a>
   </div>
   <div class="form-panel demo-entry-panel">
-    <p class="eyebrow">Presentation demos</p>
-    <h2>Choose a credential holder</h2>
-    <p class="entry-lede">Choose an issued credential to demonstrate onboarding OTP/TAP release, help-desk verification, or Face Check. The app never creates the Entra account.</p>
+    <p class="eyebrow">Employee workflow</p>
+    <h2>Choose an employee</h2>
+    <p class="entry-lede">Use one live Entra employee list to open an issued credential or begin a new Verified ID issuance.</p>
     {% if missing_config %}
       <div class="notice warning"><strong>Setup required.</strong> Configure {{ missing_config|join(', ') }} before starting Verified ID requests.</div>
     {% endif %}
     {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+    {% if directory_error %}<div class="notice error"><strong>Directory lookup failed.</strong> {{ directory_error }}</div>{% endif %}
     {% if demo_employees %}
       <form method="post" action="{{ url_for('select_demo_employee') }}" class="employee-picker">
-        <label for="onboarding_id">Issued demo credential</label>
-        <select id="onboarding_id" name="onboarding_id" required>
+        <label for="user_id">Real Entra users · Office location {{ demo_office_location }}</label>
+        <select id="user_id" name="user_id" required>
           {% for employee in demo_employees %}
-            <option value="{{ employee.onboarding_id }}">{{ employee.given_name }} {{ employee.family_name }} · {{ employee.employee_id }} · {{ employee.email }}</option>
+            <option value="{{ employee.id }}">{{ employee.displayName or employee.userPrincipalName }} · {{ employee.userPrincipalName }} · {% if employee.accountEnabled %}Enabled{% else %}Disabled{% endif %} · {% if employee.credential_issued %}Verified ID issued{% else %}Ready to issue{% endif %}</option>
           {% endfor %}
         </select>
-        <button type="submit">Use existing credential <span aria-hidden="true">→</span></button>
+        <div class="employee-actions">
+          <button type="submit">Open employee <span aria-hidden="true">→</span></button>
+          <button type="submit" class="secondary-action" formaction="{{ url_for('issue_demo_employee') }}">Issue Verified ID</button>
+        </div>
       </form>
     {% else %}
-      <div class="notice warning"><strong>No issued demo credentials yet.</strong> Link a pre-created account below and complete issuance first.</div>
+      <div class="notice warning"><strong>No real demo users found.</strong> Set Office location to <strong>{{ demo_office_location }}</strong> on the intended Entra users.</div>
     {% endif %}
 
-    <details class="new-employee-disclosure" {% if error or not demo_employees %}open{% endif %}>
-      <summary>Scenario 1 · Issue a credential for a pre-created Entra user</summary>
-      <form method="post" action="{{ url_for('new_onboarding') }}" class="employee-form">
-        <label>Existing user principal name<input type="email" name="user_principal_name" required autocomplete="off" placeholder="new.hire@example.com" value="{{ values.user_principal_name if values else '' }}"><small>Enter the exact UPN. The app retrieves this account; it does not create, enable, update, or delete it.</small></label>
-        <button type="submit">Link account and continue <span aria-hidden="true">→</span></button>
-      </form>
-    </details>
-    <p class="fine-print">The candidate does not sign in. The operator supplies the known UPN, and the picker later lists only onboarding records retained by this demo.</p>
+    <p class="fine-print">The picker shows only live Graph users whose Office location is {{ demo_office_location }}. “Verified ID issued” means this demo previously received a successful issuance callback; Entra does not expose wallet contents through Graph.</p>
   </div>
 </section>
 {% endblock %}

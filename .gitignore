@@ -16,10 +16,11 @@ __pycache__/
 .vscode/
 .copilot/
 
-# Local briefing exports and tunnel helper
-VerifiedID.html
-*.ppt
-*.pptx
+# Local briefing exports, setup notes, and tunnel helper
+/VerifiedID.html
+/SETUP.txt
+/*.ppt
+/*.pptx
 startngr.sh
 
 # Keep all hidden local/editor/runtime paths out of the shared repository.

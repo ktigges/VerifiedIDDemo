@@ -1,5 +1,8 @@
+"""Verify the Flask onboarding workflows with mocked Microsoft services."""
+
 from __future__ import annotations
 
+import base64
 import unittest
 import re
 from io import BytesIO
@@ -15,7 +18,10 @@ from app.employees import get_onboarding, update_onboarding
 
 
 class OnboardingFlowTests(unittest.TestCase):
+    """Run browser-level issuance and presentation flows against isolated state."""
+
     def setUp(self):
+        # Redirect persistent workflow state so tests never read or alter the demo file.
         temporary_directory = TemporaryDirectory()
         original_state_path = employee_store._state_path
         original_records = employee_store._records
@@ -28,12 +34,13 @@ class OnboardingFlowTests(unittest.TestCase):
             temporary_directory.cleanup()
 
         self.addCleanup(restore_employee_store)
+        # These inert values satisfy runtime validation without authenticating anywhere.
         self.app = create_app(
             {
                 "TESTING": True,
-                "azTenantId": "tenant-id",
-                "azClientId": "client-id",
-                "azClientSecret": "client-secret",
+                "entraTenantId": "tenant-id",
+                "entraClientId": "client-id",
+                "entraClientSecret": "client-secret",
                 "DidAuthority": "did:web:issuer.example",
                 "CredentialManifest": "https://verifiedid.did.msidentity.com/v1.0/tenant-id/verifiableCredentials/contracts/VerifiedEmployeeCard",
                 "CredentialType": "VerifiedEmployeeCard",
@@ -43,34 +50,53 @@ class OnboardingFlowTests(unittest.TestCase):
                 "publicBaseUrl": "https://demo.example",
                 "accessMode": "demoOtp",
                 "faceCheckMatchConfidenceThreshold": 70,
+                "demoOfficeLocation": "VIDDEMO",
+                "onboardingEmailEnabled": True,
+                "onboardingSenderUpn": "admin@example.com",
             }
         )
         self.client = self.app.test_client()
+        # Replace Graph at the Flask boundary; tests control every directory response.
         self.graph_patcher = patch("app.GraphClient")
         self.graph_client_class = self.graph_patcher.start()
         self.addCleanup(self.graph_patcher.stop)
         self.graph_client = self.graph_client_class.return_value
 
-        def get_user_by_upn(upn):
+        def get_user_by_upn(identifier):
+            upn = identifier.removeprefix("object-")
             return {
                 "id": f"object-{upn}",
                 "userPrincipalName": upn,
+                "otherMails": ["new.hire.personal@example.net"],
                 "givenName": "New",
                 "surname": "Hire",
                 "jobTitle": "Engineer",
                 "department": "Technology",
+                "officeLocation": "VIDDEMO",
                 "accountEnabled": False,
             }
 
         self.graph_client.get_user_by_upn.side_effect = get_user_by_upn
+        self.graph_client.list_users_by_office_location.return_value = [
+            get_user_by_upn("new.hire@example.com")
+        ]
 
+    # Common helpers drive the same HTTP routes used by the browser.
     def _create_employee(self, upn: str = "new.hire@example.com") -> str:
         response = self.client.post(
-            "/onboarding",
-            data={"user_principal_name": upn},
+            "/demo/issue-employee",
+            data={"user_id": f"object-{upn}"},
         )
         self.assertEqual(response.status_code, 302)
         return response.headers["Location"].rsplit("/", 1)[-1]
+
+    def _send_issuance_invite(self, onboarding_id: str) -> str:
+        self.graph_client.send_onboarding_email.reset_mock()
+        response = self.client.post(f"/onboarding/{onboarding_id}/issue")
+        self.assertEqual(response.status_code, 200)
+        recipient, invitation_url = self.graph_client.send_onboarding_email.call_args.args
+        self.assertEqual(recipient, "new.hire.personal@example.net")
+        return invitation_url.rsplit("/", 1)[-1]
 
     @staticmethod
     def _employee_photo():
@@ -79,6 +105,7 @@ class OnboardingFlowTests(unittest.TestCase):
         photo.seek(0)
         return photo, "employee.jpg"
 
+    # Entry pages, employee scope, and account lifecycle behavior.
     def test_customer_explainer_precedes_demo(self):
         demo = self.client.get("/")
         explainer = self.client.get("/overview")
@@ -101,12 +128,13 @@ class OnboardingFlowTests(unittest.TestCase):
         self.assertEqual(legacy_process.status_code, 302)
         self.assertEqual(legacy_process.headers["Location"], "/overview")
 
-    def test_demo_employee_picker_skips_to_flow_choices(self):
+    def test_picker_shows_only_real_viddemo_users_and_resumes_credential(self):
         onboarding_id = self._create_employee()
-        excluded_id = self._create_employee()
+        excluded_id = self._create_employee("stale.local@example.com")
         update_onboarding(
             onboarding_id,
             status="helpdesk_verified",
+            approved_at="2026-01-01T00:00:00+00:00",
             presentation_state="old-presentation",
             presentation_context="helpdesk",
             otp="old-code",
@@ -114,15 +142,17 @@ class OnboardingFlowTests(unittest.TestCase):
         update_onboarding(excluded_id, status="credential_issued", demo_employee=False)
 
         picker = self.client.get("/")
-        self.assertIn(onboarding_id.encode(), picker.data)
+        self.assertIn(b"new.hire@example.com", picker.data)
+        self.assertIn(b"Verified ID issued", picker.data)
+        self.assertIn(b"Issue Verified ID", picker.data)
+        self.assertNotIn(b"Existing user principal name", picker.data)
+        self.assertNotIn(b"stale.local@example.com", picker.data)
         self.assertNotIn(excluded_id.encode(), picker.data)
-        excluded_response = self.client.post(
-            "/demo/select-employee",
-            data={"onboarding_id": excluded_id},
-        )
-        self.assertEqual(excluded_response.status_code, 404)
 
-        response = self.client.post("/demo/select-employee", data={"onboarding_id": onboarding_id})
+        response = self.client.post(
+            "/demo/select-employee",
+            data={"user_id": "object-new.hire@example.com"},
+        )
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.headers["Location"].endswith(f"/onboarding/{onboarding_id}"))
@@ -133,6 +163,94 @@ class OnboardingFlowTests(unittest.TestCase):
         choices = self.client.get(response.headers["Location"])
         self.assertIn(b"Continue onboarding", choices.data)
         self.assertIn(b"Verify help-desk caller", choices.data)
+
+    def test_open_employee_rejects_user_without_locally_issued_credential(self):
+        response = self.client.post(
+            "/demo/select-employee",
+            data={"user_id": "object-new.hire@example.com"},
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn(b"No Verified ID issued by this demo", response.data)
+        self.assertIsNone(employee_store.find_latest_by_entra_user_id("object-new.hire@example.com"))
+
+    def test_issue_accepts_first_other_mail_without_classifying_it(self):
+        self.graph_client.get_user_by_upn.side_effect = lambda identifier: {
+            "id": identifier,
+            "userPrincipalName": "new.hire@example.com",
+            "otherMails": ["new.hire@example.com"],
+            "givenName": "New",
+            "surname": "Hire",
+            "jobTitle": "Engineer",
+            "department": "Technology",
+            "officeLocation": "VIDDEMO",
+            "accountEnabled": False,
+        }
+
+        response = self.client.post(
+            "/demo/issue-employee",
+            data={"user_id": "object-new.hire@example.com"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        onboarding_id = response.headers["Location"].rsplit("/", 1)[-1]
+        self.assertEqual(get_onboarding(onboarding_id)["personal_email"], "new.hire@example.com")
+
+    def test_newer_incomplete_attempt_does_not_hide_issued_credential(self):
+        issued_id = self._create_employee()
+        update_onboarding(
+            issued_id,
+            status="credential_issued",
+            issuance_succeeded_at="2026-09-10T12:00:00+00:00",
+        )
+        incomplete_id = self._create_employee()
+
+        picker = self.client.get("/")
+        opened = self.client.post(
+            "/demo/select-employee",
+            data={"user_id": "object-new.hire@example.com"},
+        )
+
+        self.assertIn(b"Verified ID issued", picker.data)
+        self.assertEqual(opened.status_code, 302)
+        self.assertTrue(opened.headers["Location"].endswith(f"/onboarding/{issued_id}"))
+        self.assertNotEqual(issued_id, incomplete_id)
+
+    def test_account_can_be_enabled_only_after_operator_approval(self):
+        onboarding_id = self._create_employee()
+
+        too_early = self.client.post(f"/onboarding/{onboarding_id}/enable-user")
+        self.assertEqual(too_early.status_code, 409)
+        self.graph_client.enable_user.assert_not_called()
+
+        update_onboarding(onboarding_id, status="credential_issued_pending_approval")
+        still_too_early = self.client.post(f"/onboarding/{onboarding_id}/enable-user")
+        self.assertEqual(still_too_early.status_code, 409)
+
+        approved = self.client.post(f"/onboarding/{onboarding_id}/approve")
+        self.assertEqual(approved.status_code, 302)
+        self.assertIsNotNone(get_onboarding(onboarding_id)["approved_at"])
+
+        enabled = self.client.post(f"/onboarding/{onboarding_id}/enable-user")
+
+        self.assertEqual(enabled.status_code, 302)
+        self.graph_client.enable_user.assert_called_once_with("object-new.hire@example.com")
+        self.assertTrue(get_onboarding(onboarding_id)["entra_account_enabled"])
+        self.assertEqual(get_onboarding(onboarding_id)["status"], "credential_issued")
+
+    def test_already_enabled_account_advances_after_approval(self):
+        onboarding_id = self._create_employee()
+        update_onboarding(
+            onboarding_id,
+            status="credential_issued_pending_approval",
+            entra_account_enabled=True,
+        )
+
+        approved = self.client.post(f"/onboarding/{onboarding_id}/approve")
+
+        self.assertEqual(approved.status_code, 302)
+        self.graph_client.enable_user.assert_not_called()
+        self.assertEqual(get_onboarding(onboarding_id)["status"], "credential_issued")
 
     def test_repeated_linking_generates_distinct_credential_references(self):
         first_id = self._create_employee()
@@ -151,6 +269,7 @@ class OnboardingFlowTests(unittest.TestCase):
         )
         self.graph_client.create_user.assert_not_called()
 
+    # Issuance callbacks and claim matching gate every access-code result.
     @patch("app.VerifiedIdClient")
     def test_access_code_requires_matching_verified_credential(self, verified_id_client):
         client = verified_id_client.return_value
@@ -159,17 +278,22 @@ class OnboardingFlowTests(unittest.TestCase):
         onboarding_id = self._create_employee()
         employee = get_onboarding(onboarding_id)
 
+        token = self._send_issuance_invite(onboarding_id)
+        self.assertNotIn(token, employee_store._state_path.read_text(encoding="utf-8"))
+        preview = self.client.get(f"/issue/{token}")
+        self.assertEqual(preview.status_code, 200)
         issuance_response = self.client.post(
-            f"/onboarding/{onboarding_id}/issue",
+            f"/issue/{token}/start",
             data={"employee_photo": self._employee_photo()},
             content_type="multipart/form-data",
         )
         self.assertEqual(issuance_response.status_code, 200)
+        self.assertEqual(self.client.get(f"/issue/{token}").status_code, 410)
         issuance_payload = client.create_issuance_request.call_args.args[0]
         self.assertIn("manifest", issuance_payload)
         self.assertNotIn("manifestUrl", issuance_payload)
         self.assertEqual(issuance_payload["claims"]["employee_id"], employee["employee_id"])
-        self.assertTrue(issuance_payload["claims"]["photo"].startswith("%2F9j%2F"))
+        self.assertTrue(issuance_payload["claims"]["photo"].startswith("/9j/"))
         self.assertTrue(get_onboarding(onboarding_id)["face_check_capable"])
 
         employee = get_onboarding(onboarding_id)
@@ -178,6 +302,11 @@ class OnboardingFlowTests(unittest.TestCase):
             headers={"api-key": "callback-secret"},
             json={"state": employee["issuance_state"], "requestStatus": "issuance_successful"},
         )
+        self.assertEqual(get_onboarding(onboarding_id)["status"], "credential_issued_pending_approval")
+        blocked = self.client.post(f"/onboarding/{onboarding_id}/enable-user")
+        self.assertEqual(blocked.status_code, 409)
+        self.client.post(f"/onboarding/{onboarding_id}/approve")
+        self.client.post(f"/onboarding/{onboarding_id}/enable-user")
         self.assertEqual(get_onboarding(onboarding_id)["status"], "credential_issued")
 
         presentation_response = self.client.post(f"/onboarding/{onboarding_id}/verify")
@@ -225,23 +354,55 @@ class OnboardingFlowTests(unittest.TestCase):
         )
         self.assertEqual(get_onboarding(onboarding_id)["otp"], original_otp)
 
+    # Photo tests keep image validation and normalization inside the issuance boundary.
     @patch("app.VerifiedIdClient")
     def test_issuance_rejects_invalid_employee_photo(self, verified_id_client):
         onboarding_id = self._create_employee()
+        token = self._send_issuance_invite(onboarding_id)
 
         response = self.client.post(
-            f"/onboarding/{onboarding_id}/issue",
+            f"/issue/{token}/start",
             data={"employee_photo": (BytesIO(b"not-a-jpeg"), "employee.jpg")},
             content_type="multipart/form-data",
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 400)
         employee = get_onboarding(onboarding_id)
-        self.assertEqual(employee["status"], "issuance_error")
-        self.assertIn("valid JPEG", employee["error"])
+        self.assertEqual(employee["status"], "issuance_invited")
+        self.assertIn(b"valid JPEG", response.data)
         self.assertFalse(employee["face_check_capable"])
         verified_id_client.return_value.create_issuance_request.assert_not_called()
 
+        retry = self.client.get(f"/issue/{token}")
+        self.assertEqual(retry.status_code, 200)
+
+    @patch("app.VerifiedIdClient")
+    def test_issuance_compresses_large_employee_photo(self, verified_id_client):
+        verified_id_client.return_value.create_issuance_request.return_value = {
+            "url": "openid-initiate-issuance://request"
+        }
+        onboarding_id = self._create_employee()
+        token = self._send_issuance_invite(onboarding_id)
+        photo = BytesIO()
+        Image.effect_noise((3000, 3000), 100).convert("RGB").save(photo, format="JPEG", quality=95)
+        self.assertGreater(photo.tell(), 1_000_000)
+        photo.seek(0)
+
+        response = self.client.post(
+            f"/issue/{token}/start",
+            data={"employee_photo": (photo, "phone-photo.jpg")},
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = verified_id_client.return_value.create_issuance_request.call_args.args[0]
+        encoded_photo = base64.b64decode(payload["claims"]["photo"])
+        self.assertLessEqual(len(encoded_photo), 1_000_000)
+        with Image.open(BytesIO(encoded_photo)) as compressed:
+            self.assertEqual(compressed.format, "JPEG")
+            self.assertGreaterEqual(min(compressed.size), 200)
+
+    # Presentation contexts intentionally produce different downstream actions.
     def test_verified_credential_creates_real_tap_for_provisioned_user(self):
         self.app.config["DEMO_CONFIG"]["accessMode"] = "graphTap"
         self.graph_client.create_temporary_access_pass.return_value = {
@@ -353,7 +514,8 @@ class OnboardingFlowTests(unittest.TestCase):
     @patch("app.VerifiedIdClient")
     def test_face_check_presentation_requires_passing_score_without_creating_tap(self, verified_id_client):
         verified_id_client.return_value.create_presentation_request.return_value = {
-            "url": "openid-vc://face-check-request"
+            "url": "openid-vc://face-check-request",
+            "requestId": "face-check-request-id",
         }
         onboarding_id = self._create_employee()
         employee = get_onboarding(onboarding_id)
@@ -374,10 +536,28 @@ class OnboardingFlowTests(unittest.TestCase):
         self.assertEqual(validation["faceCheck"]["matchConfidenceThreshold"], 70)
 
         pending = get_onboarding(onboarding_id)
+        self.assertEqual(pending["presentation_request_id"], "face-check-request-id")
+        retrieved = self.client.post(
+            "/api/verifiedid/callback",
+            headers={"api-key": "callback-secret"},
+            json={
+                "requestId": "face-check-request-id",
+                "state": pending["presentation_state"],
+                "requestStatus": "request_retrieved",
+            },
+        )
+        self.assertEqual(retrieved.status_code, 200)
+        pending = get_onboarding(onboarding_id)
+        self.assertEqual(pending["status"], "presentation_pending")
+        self.assertEqual(pending["last_callback_status"], "request_retrieved")
+        self.assertEqual(pending["last_callback_request_id"], "face-check-request-id")
+        self.assertIsNotNone(pending["last_callback_at"])
+
         self.client.post(
             "/api/verifiedid/callback",
             headers={"api-key": "callback-secret"},
             json={
+                "requestId": "face-check-request-id",
                 "state": pending["presentation_state"],
                 "requestStatus": "presentation_verified",
                 "verifiedCredentialsData": [{
@@ -414,6 +594,7 @@ class OnboardingFlowTests(unittest.TestCase):
         self.assertEqual(failed["status"], "presentation_error")
         self.assertIn("passing confidence score", failed["error"])
 
+    # The application exposes no account-deletion route or Graph delete operation.
     def test_linked_user_cannot_be_deleted_by_demo(self):
         onboarding_id = self._create_employee()
 

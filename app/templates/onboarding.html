@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ employee.given_name }} {{ employee.family_name }} | {{ organization_name }} Identity{% endblock %}
 {% block content %}
+{% set issued_statuses = ['credential_issued_pending_approval', 'approved', 'credential_issued', 'presentation_pending', 'presentation_error', 'verified', 'helpdesk_verified', 'facecheck_verified'] %}
+{% set verified_statuses = ['verified', 'helpdesk_verified', 'facecheck_verified'] %}
 <section class="workspace">
   <div class="workspace-heading">
     <div>
@@ -13,10 +15,10 @@
 
   <div class="progress" aria-label="Onboarding progress">
     <div class="progress-step active"><span>1</span><strong>Record created</strong></div>
-    <div class="progress-line {% if employee.status in ['credential_issued', 'presentation_pending', 'presentation_error', 'verified', 'helpdesk_verified', 'facecheck_verified'] %}complete{% endif %}"></div>
-    <div class="progress-step {% if employee.status in ['credential_issued', 'presentation_pending', 'presentation_error', 'verified', 'helpdesk_verified', 'facecheck_verified'] %}active{% endif %}"><span>2</span><strong>Credential issued</strong></div>
-    <div class="progress-line {% if employee.status in ['verified', 'helpdesk_verified', 'facecheck_verified'] %}complete{% endif %}"></div>
-    <div class="progress-step {% if employee.status in ['verified', 'helpdesk_verified', 'facecheck_verified'] %}active{% endif %}"><span>3</span><strong>Identity verified</strong></div>
+    <div class="progress-line {% if employee.status in issued_statuses %}complete{% endif %}"></div>
+    <div class="progress-step {% if employee.status in issued_statuses %}active{% endif %}"><span>2</span><strong>Credential issued</strong></div>
+    <div class="progress-line {% if employee.status in verified_statuses %}complete{% endif %}"></div>
+    <div class="progress-step {% if employee.status in verified_statuses %}active{% endif %}"><span>3</span><strong>Identity verified</strong></div>
   </div>
 
   {% if employee.error %}<div class="notice error"><strong>Request failed.</strong> {{ employee.error }}</div>{% endif %}
@@ -24,15 +26,21 @@
   <div class="action-panel">
     {% if employee.status in ['created', 'issuance_error'] %}
       <p class="step-number">STEP 1 OF 3</p>
-      <h2>Issue the employee credential</h2>
-      <p>Pre-created Entra account <strong>{{ employee.email }}</strong> is linked. The employee does not need to sign in. Add an HR-approved JPEG photo so the issued credential can support Microsoft Entra Face Check.</p>
+      <h2>Invite the employee</h2>
+      <p>Send a 15-minute, single-use credential link to <strong>{{ employee.personal_email }}</strong>. The disabled work account <strong>{{ employee.email }}</strong> is linked but is not activated by this step.</p>
       {% if missing_config %}
         <div class="notice warning">Complete the tenant configuration before continuing.</div>
       {% else %}
-        <form method="post" enctype="multipart/form-data" action="{{ url_for('start_issuance', onboarding_id=employee.onboarding_id) }}" class="issuance-form"><label>HR-approved employee photo<input type="file" name="employee_photo" accept="image/jpeg,.jpg,.jpeg" required><small>JPEG, at least 200 x 200 pixels, no larger than 1 MB. The app sends it into the credential request and does not retain it locally.</small></label><button type="submit">Create issuance QR <span aria-hidden="true">→</span></button></form>
+        <form method="post" action="{{ url_for('start_issuance', onboarding_id=employee.onboarding_id) }}"><button type="submit">Send credential link <span aria-hidden="true">→</span></button></form>
       {% endif %}
+    {% elif employee.status == 'issuance_invited' %}
+      <p class="step-number">INVITATION SENT</p><h2>Waiting for the employee</h2><p>The one-time link was addressed to <strong>{{ employee.personal_email }}</strong>. It expires after 15 minutes and can start issuance only once.</p><form method="post" action="{{ url_for('start_issuance', onboarding_id=employee.onboarding_id) }}"><button type="submit" class="secondary-action">Replace and resend link</button></form>
     {% elif employee.status == 'issuance_pending' %}
-      <p class="step-number">ISSUANCE IN PROGRESS</p><h2>Waiting for credential acceptance</h2><p>Return to the active QR request or retry this run after the request expires.</p>
+      <p class="step-number">ISSUANCE IN PROGRESS</p><h2>Waiting for credential acceptance</h2><p>The employee has opened the link and must accept the credential in Microsoft Authenticator.</p>
+    {% elif employee.status == 'credential_issued_pending_approval' %}
+      <p class="step-number">OPERATOR REVIEW</p><h2>Credential issued, approval required</h2><p>Microsoft Entra Verified ID confirmed issuance for <strong>{{ employee.email }}</strong>. Review the onboarding record before approving it. Approval does not activate the account.</p><form method="post" action="{{ url_for('approve_issuance', onboarding_id=employee.onboarding_id) }}"><button type="submit">Approve credential <span aria-hidden="true">→</span></button></form>
+    {% elif employee.status == 'approved' %}
+      <p class="step-number success-text">APPROVED</p><h2>Activate the Entra account</h2>{% if employee.entra_account_enabled %}<div class="notice success"><strong>Entra account enabled.</strong> Continue to credential verification.</div>{% else %}<div class="notice warning"><strong>Entra account disabled.</strong> Approval is recorded. Activation is the final explicit directory change before Entra sign-in and TAP use.</div>{% endif %}<form method="post" action="{{ url_for('enable_linked_user', onboarding_id=employee.onboarding_id) }}"><button type="submit">{% if employee.entra_account_enabled %}Continue{% else %}Enable Entra account{% endif %} <span aria-hidden="true">→</span></button></form>
     {% elif employee.status in ['credential_issued', 'presentation_error'] %}
       <p class="step-number">STEP 2 OF 3</p>
       <h2>Choose where to use the credential</h2>
@@ -63,6 +71,7 @@
       </div>
     {% elif employee.status == 'presentation_pending' %}
       <p class="step-number">VERIFICATION IN PROGRESS</p><h2>Waiting for credential presentation</h2><p>{% if employee.presentation_context == 'helpdesk' %}The help desk cannot mark the caller verified until the credential claims match this employee.{% elif employee.presentation_context == 'facecheck' %}Authenticator must complete liveness and return a passing match against the credential photo.{% else %}Access remains locked until the Verified ID callback succeeds.{% endif %}</p>
+      <div class="notice warning"><strong>Diagnostic status:</strong> {{ employee.last_callback_status or 'No callback received' }}{% if employee.presentation_request_id %}<br>Request ID: <code>{{ employee.presentation_request_id }}</code>{% endif %}{% if employee.last_callback_at %}<br>Last callback: {{ employee.last_callback_at }}{% endif %}{% if employee.last_callback_error_code %}<br>Error: <code>{{ employee.last_callback_error_code }}</code> {{ employee.last_callback_error_message }}{% endif %}</div>
     {% elif employee.status == 'helpdesk_verified' %}
       <p class="step-number success-text">HELP-DESK FLOW · CALLER VERIFIED</p>
       <h2>Identity confirmed for the help desk</h2>

@@ -1,4 +1,9 @@
-"""Microsoft Entra Verified ID Request Service helpers."""
+"""Call the Microsoft Entra Verified ID Request Service.
+
+Author: Kevin Tigges
+Date: 2026-09-22
+Demo only; not authorized by Microsoft and not for production use.
+"""
 
 from __future__ import annotations
 
@@ -29,14 +34,16 @@ class VerifiedIdClient:
     """Thin client around MSAL + Verified ID Request Service APIs."""
 
     def __init__(self, config: dict[str, Any]):
+        """Initialize Request Service authentication and endpoint settings."""
         self.config = config
         self._cca = msal.ConfidentialClientApplication(
-            config["azClientId"],
-            authority=f"https://login.microsoftonline.com/{config['azTenantId']}",
-            client_credential=config["azClientSecret"],
+            config["entraClientId"],
+            authority=f"https://login.microsoftonline.com/{config['entraTenantId']}",
+            client_credential=config["entraClientSecret"],
         )
 
     def get_access_token(self) -> str:
+        """Acquire an app-only token for the Verified ID Request Service."""
         result = self._cca.acquire_token_for_client(scopes=[self.config["vcServiceScope"]])
         if "access_token" not in result:
             error = result.get("error")
@@ -61,12 +68,14 @@ class VerifiedIdClient:
         return token
 
     def _endpoint(self, action: str) -> str:
+        """Build a Request Service action URL from the configured base URL."""
         host = self.config.get("msIdentityHostName") or "https://verifiedid.did.msidentity.com/v1.0/"
         if not host.endswith("/"):
             host += "/"
         return f"{host}verifiableCredentials/{action}"
 
     def create_issuance_request(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Create an issuance request and return wallet handoff data."""
         token = self.get_access_token()
         url = self._endpoint("createIssuanceRequest")
         headers = {
@@ -82,6 +91,7 @@ class VerifiedIdClient:
         return data
 
     def create_presentation_request(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Create a presentation request and return wallet handoff data."""
         token = self.get_access_token()
         url = self._endpoint("createPresentationRequest")
         headers = {
@@ -97,6 +107,7 @@ class VerifiedIdClient:
         return data
 
     def fetch_manifest(self) -> dict[str, Any]:
+        """Fetch and decode the configured public credential manifest."""
         manifest_url = self.config["CredentialManifest"]
         response = requests.get(manifest_url, timeout=60)
         response.raise_for_status()
@@ -131,6 +142,7 @@ def public_base_url(request_url_root: str, configured_public_base_url: str = "")
 
 
 def _safe_json(response: requests.Response) -> dict[str, Any]:
+    """Return a JSON response or preserve the text body for diagnostics."""
     try:
         return response.json()
     except Exception:

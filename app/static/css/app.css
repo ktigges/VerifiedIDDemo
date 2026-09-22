@@ -92,6 +92,7 @@ button.danger { background: #b42318; } button.danger:hover { background: #8f1c13
 .fine-print { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 22px; }
 .entry-lede { margin: -14px 0 24px; color: var(--muted); font-size: 14px; line-height: 1.55; }
 .employee-picker { display: grid; gap: 16px; padding: 22px; border-top: 4px solid var(--green); background: #f1f6f4; }
+.employee-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .new-employee-disclosure { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 22px; }
 .new-employee-disclosure summary { color: var(--blue); cursor: pointer; font-weight: 800; }
 .new-employee-disclosure .employee-form { margin-top: 22px; }
@@ -238,6 +239,7 @@ button.danger { background: #b42318; } button.danger:hover { background: #8f1c13
 }
 
 @media (max-width: 800px) {
+  .employee-actions { grid-template-columns: 1fr; }
   .topbar { height: auto; min-height: 64px; gap: 18px; padding-top: 12px; padding-bottom: 12px; }.topbar-nav { gap: 14px; }.topbar-nav a { max-width: 92px; line-height: 1.25; text-align: right; }
   .intro-hero { min-height: 0; grid-template-columns: 1fr; }.intro-hero-copy { padding: 64px 28px; }.intro-hero h1 { font-size: 48px; }.hero-actions { align-items: flex-start; flex-direction: column; }.risk-brief { margin: 0 28px 48px; }
   .section-inner { width: min(100% - 40px, 1180px); padding: 64px 0; }.trust-chain { grid-template-columns: 1fr; gap: 18px; }.chain-arrow { min-height: 28px; transform: rotate(90deg); }.purpose-grid { grid-template-columns: 1fr; gap: 36px; }.proof-list { grid-template-columns: 1fr; }

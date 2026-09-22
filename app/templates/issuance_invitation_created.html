@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Invitation created | {{ organization_name }} Identity{% endblock %}
+{% block content %}
+<section class="workspace">
+  <div class="action-panel">
+    <p class="step-number">{% if email_sent %}DELIVERY REQUESTED{% else %}LINK CREATED{% endif %}</p>
+    <h2>Employee credential invitation ready</h2>
+    <p>{% if email_sent %}Microsoft Graph accepted an email delivery request for <strong>{{ employee.personal_email }}</strong>. Delivery may be delayed or filtered.{% else %}Email delivery is disabled. Deliver this 15-minute, single-use link to <strong>{{ employee.personal_email }}</strong>.{% endif %}</p>
+    <p><a href="{{ invitation_url }}">{{ invitation_url }}</a></p>
+    <div class="next-actions"><a class="button" href="{{ url_for('onboarding', onboarding_id=employee.onboarding_id) }}">Return to onboarding</a></div>
+  </div>
+</section>
+{% endblock %}

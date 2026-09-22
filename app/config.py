@@ -1,4 +1,9 @@
-"""Configuration loader for the Verified ID onboarding demo."""
+"""Load configuration for the Verified ID onboarding demo.
+
+Author: Kevin Tigges
+Date: 2026-09-22
+Demo only; not authorized by Microsoft and not for production use.
+"""
 
 from __future__ import annotations
 
@@ -22,6 +27,7 @@ DEFAULT_MS_IDENTITY_HOST = "https://verifiedid.did.msidentity.com/v1.0/"
 
 
 def _env(name: str, default: str | None = None) -> str | None:
+    """Read one environment value with an optional default."""
     value = os.getenv(name)
     if value is None or value == "":
         return default
@@ -29,6 +35,7 @@ def _env(name: str, default: str | None = None) -> str | None:
 
 
 def _load_or_create_callback_key() -> str:
+    """Load or create the local secret used to authenticate callbacks."""
     configured = os.getenv("CALLBACK_API_KEY")
     if configured:
         return configured
@@ -68,9 +75,9 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
 
     # Environment variables override file values (useful for demos / CI).
     overrides = {
-        "azTenantId": _env("azTenantId") or _env("AZ_TENANT_ID"),
-        "azClientId": _env("azClientId") or _env("AZ_CLIENT_ID"),
-        "azClientSecret": _env("azClientSecret") or _env("AZ_CLIENT_SECRET"),
+        "entraTenantId": _env("entraTenantId") or _env("ENTRA_TENANT_ID"),
+        "entraClientId": _env("entraClientId") or _env("ENTRA_CLIENT_ID"),
+        "entraClientSecret": _env("entraClientSecret") or _env("ENTRA_CLIENT_SECRET"),
         "DidAuthority": _env("DidAuthority") or _env("DID_AUTHORITY"),
         "CredentialManifest": _env("CredentialManifest") or _env("CREDENTIAL_MANIFEST"),
         "CredentialType": _env("CredentialType") or _env("CREDENTIAL_TYPE"),
@@ -86,6 +93,9 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
         "accessMode": _env("accessMode") or _env("ACCESS_MODE"),
         "tapLifetimeMinutes": _env("tapLifetimeMinutes") or _env("TAP_LIFETIME_MINUTES"),
         "faceCheckMatchConfidenceThreshold": _env("faceCheckMatchConfidenceThreshold") or _env("FACE_CHECK_MATCH_CONFIDENCE_THRESHOLD"),
+        "demoOfficeLocation": _env("demoOfficeLocation") or _env("DEMO_OFFICE_LOCATION"),
+        "onboardingEmailEnabled": _env("onboardingEmailEnabled") or _env("ONBOARDING_EMAIL_ENABLED"),
+        "onboardingSenderUpn": _env("onboardingSenderUpn") or _env("ONBOARDING_SENDER_UPN"),
     }
     for key, value in overrides.items():
         if value is not None and value != "":
@@ -104,6 +114,9 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
     cfg.setdefault("accessMode", "graphTap")
     cfg.setdefault("tapLifetimeMinutes", 60)
     cfg.setdefault("faceCheckMatchConfidenceThreshold", 70)
+    cfg.setdefault("demoOfficeLocation", "VIDDEMO")
+    cfg.setdefault("onboardingEmailEnabled", False)
+    cfg.setdefault("onboardingSenderUpn", "")
     cfg.setdefault("acceptedIssuers", cfg.get("DidAuthority", ""))
 
     # Runtime-only values.
@@ -135,6 +148,8 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
 
     if isinstance(cfg.get("debug"), str):
         cfg["debug"] = cfg["debug"].strip().lower() in {"1", "true", "yes", "on"}
+    if isinstance(cfg.get("onboardingEmailEnabled"), str):
+        cfg["onboardingEmailEnabled"] = cfg["onboardingEmailEnabled"].strip().lower() in {"1", "true", "yes", "on"}
     # acceptedIssuers can be a single DID or a semicolon-separated list.
     accepted = cfg.get("acceptedIssuers") or cfg.get("DidAuthority") or ""
     if isinstance(accepted, str):
@@ -150,9 +165,9 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
 def validate_runtime_config(cfg: dict[str, Any]) -> list[str]:
     """Return a list of missing required settings for issuance/presentation."""
     required = [
-        "azTenantId",
-        "azClientId",
-        "azClientSecret",
+        "entraTenantId",
+        "entraClientId",
+        "entraClientSecret",
         "DidAuthority",
         "CredentialManifest",
         "CredentialType",
@@ -165,4 +180,6 @@ def validate_runtime_config(cfg: dict[str, Any]) -> list[str]:
     accepted_issuers = cfg.get("acceptedIssuersList") or []
     if not accepted_issuers or any("YOUR-" in str(issuer) for issuer in accepted_issuers):
         missing.append("acceptedIssuers")
+    if cfg.get("onboardingEmailEnabled") and not str(cfg.get("onboardingSenderUpn") or "").strip():
+        missing.append("onboardingSenderUpn")
     return missing

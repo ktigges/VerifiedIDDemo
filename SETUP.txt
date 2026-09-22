@@ -1,4 +1,0 @@
-Setup instructions are maintained in README.md.
-
-Start with "Customer-specific files", then complete the Entra setup and local
-configuration sections. Never commit config.json or local runtime state.

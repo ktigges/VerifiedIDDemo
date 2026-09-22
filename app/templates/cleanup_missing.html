@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Cleanup unavailable | KYTIGGES Identity{% endblock %}
+{% block content %}
+<section class="workspace">
+  <div class="action-panel">
+    <p class="step-number">ONBOARDING RECORD NOT FOUND</p>
+    <h2>This run started before reload-safe storage was enabled.</h2>
+    <p>Delete the generated account manually under Entra ID, Users, All users. Search for the UPN shown on the previous onboarding page.</p>
+    <a class="button" href="{{ url_for('index') }}">Start another run</a>
+  </div>
+</section>
+{% endblock %}
